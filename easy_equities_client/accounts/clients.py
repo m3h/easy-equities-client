@@ -1,4 +1,5 @@
 import json
+from datetime import date
 from typing import List, Optional
 
 from bs4 import BeautifulSoup
@@ -8,6 +9,7 @@ from easy_equities_client import constants
 from easy_equities_client.accounts.parsers import (
     AccountHoldingsParser,
     AccountOverviewParser,
+    TransactionHistorySearchParser
 )
 from easy_equities_client.accounts.types import Account, Holding, Transaction, Valuation
 from easy_equities_client.types import Client
@@ -59,6 +61,38 @@ class AccountsClient(Client):
         response = self.session.get(self._url(constants.PLATFORM_TRANSACTIONS_PATH))
         response.raise_for_status()
         return response.json()
+
+    def transactions_search(self, account_id: str, start_date: date, end_date: date, page: int) -> List[dict]:
+        """
+        Search for transactions for an account
+
+        :param account_id: String account ID.
+        :param start_date first date in search
+        :param end_date end date in search
+        :param page page of the results
+
+        Transactions
+        """
+        params = {
+            "StartDate": start_date.strftime("%m/%d/%Y"),
+            "EndDate": end_date.strftime("%m/%d/%Y"),
+            "PageNumber": page
+        }
+        self._switch_account(account_id)
+        response = self.session.get(
+            self._url(constants.PLATFORM_TRANSACTIONS_SEARCH_PATH),
+            params=params,
+            headers={
+                'Accept-Language': 'en-US'
+            }
+        )
+        with open('myfile.html', 'wb') as f:
+            f.write(response.content)
+        response.raise_for_status()
+        parser = TransactionHistorySearchParser(response.content)
+
+        transactions = parser.extract_transaction_history()
+        return transactions
 
     def holdings(self, account_id: str, include_shares: bool = False) -> List[Holding]:
         """

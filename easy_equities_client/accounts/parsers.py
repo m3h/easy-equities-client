@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from datetime import date
 from typing import List, Optional
 
 from bs4 import BeautifulSoup
@@ -136,5 +137,53 @@ class AccountHoldingsParser:
         soup = BeautifulSoup(self.page, "html.parser")
         holdings_divs = soup.find_all(attrs={'class': 'holding-inner-container'})
         # Get unique holdings (skip first row because it is the header row)
-        divs = set([HoldingDivParser(holding_div) for holding_div in holdings_divs[1:]])
+        # for i, holding_div in enumerate(holdings_divs[1:]):
+        #     print(holding_div)
+        #     hash(HoldingDivParser(holding_div))
+        #     print()
+        #     print()
+
+        divs = set([HoldingDivParser(holding_div) for holding_div in holdings_divs[1:] if 'holding-table-header' not in holding_div.parent.attrs['class']])
         return [div.to_dict() for div in divs]
+
+@dataclass
+class TransactionHistorySearchParser:
+    """
+    Parse the Transaction History Search page given the html contents of the page.
+    """
+
+    page: bytes
+
+    def extract_transaction_history(self):
+        """
+        Return the holdings found on the holdings page.
+        """
+        soup = BeautifulSoup(self.page, "html.parser")
+
+        htmltable = soup.find('table', { 'class' : 'table table-style' })
+        rows = list()
+        for row in htmltable.tbody.findAll('tr'):
+            row_data = dict()
+            for column in row.findAll('td'):
+                row_data[column['data-title']] = column.text.strip()
+            
+            row_data['DATE'] = date.fromisoformat(row_data['DATE'])
+
+            amount_str = row_data['DEBIT/CREDIT']
+            if '-' in amount_str:
+                multiplier = -1
+                amount_str =  amount_str.replace('-', '')
+            else:
+                multiplier = 1
+            
+            amount_str = amount_str.replace(' ', '')
+
+            currency, amount_digits = amount_str[0], float(amount_str[1:])
+
+            row_data['CURRENCY'] = currency
+            row_data['AMOUNT'] = multiplier * amount_digits
+
+
+            rows.append(row_data)
+
+        return rows
