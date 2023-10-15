@@ -86,8 +86,6 @@ class AccountsClient(Client):
                 'Accept-Language': 'en-US'
             }
         )
-        with open('myfile.html', 'wb') as f:
-            f.write(response.content)
         response.raise_for_status()
         parser = TransactionHistorySearchParser(response.content)
 
